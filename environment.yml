@@ -1,0 +1,16 @@
+name: phoebe
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas>=2.0
+  - numpy>=1.26
+  - scikit-learn>=1.4
+  - matplotlib>=3.8
+  - seaborn>=0.13
+  - shap>=0.45
+  - ipywidgets>=8.0
+  - pip
+  - pip:
+      - pre-commit
