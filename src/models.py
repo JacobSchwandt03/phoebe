@@ -57,23 +57,58 @@ def prepare_features(df):
 
 
 def encode_features(df):
-    """Encode categorical features in the dataframe using one-hot encoding.
+    """Extract features (including categorical) and outcome arrays.
+
+    Drops grade columns (G1, G2, G3) but retains categorical columns.
+    Call apply_dummies() on train/test splits separately after splitting
+    to avoid leaking test-set category information into the feature space.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Input dataframe with categorical columns to encode.
+        Raw student dataset containing at least G1, G2, and G3 columns.
 
     Returns
     -------
-    df_encoded : pd.DataFrame
-        Dataframe with categorical columns replaced by one-hot encoded columns.
+    X : pd.DataFrame
+        Feature matrix with grade columns removed; categoricals are untouched.
+    y_g3_g1 : pd.Series
+        Outcome array of G3 minus G1.
+    y_g2_g1 : pd.Series
+        Outcome array of G2 minus G1.
     """
     y_g3_g1 = df["G3"] - df["G1"]
     y_g2_g1 = df["G2"] - df["G1"]
-
-    X = pd.get_dummies(df.drop(columns=["G1", "G2", "G3"]), drop_first=True)
+    X = df.drop(columns=["G1", "G2", "G3"])
     return X, y_g3_g1, y_g2_g1
+
+
+def apply_dummies(X_train, X_test):
+    """One-hot encode categoricals fit on train only, then align test columns.
+
+    Encodes using only categories present in the training split, then
+    reindexes the test split to the same columns (filling unseen categories
+    with 0). This prevents test-set information leaking into the feature space.
+
+    Parameters
+    ----------
+    X_train : pd.DataFrame
+        Training feature matrix with raw categorical columns.
+    X_test : pd.DataFrame
+        Test feature matrix with raw categorical columns.
+
+    Returns
+    -------
+    X_train_enc : pd.DataFrame
+        One-hot encoded training features.
+    X_test_enc : pd.DataFrame
+        One-hot encoded test features, aligned to training columns.
+    """
+    X_train_enc = pd.get_dummies(X_train, drop_first=True)
+    X_test_enc = pd.get_dummies(X_test, drop_first=True).reindex(
+        columns=X_train_enc.columns, fill_value=0
+    )
+    return X_train_enc, X_test_enc
 
 
 def fit_lasso(X_train, y_train):
@@ -160,18 +195,22 @@ def fit_logistic(X_train, y_train):
     """
     Fit L1-penalised logistic regression via grid search over C.
     C is the inverse of regularisation strength (smaller C = stronger penalty).
-    Uses liblinear solver which supports L1 penalty.
+    Uses saga solver with l1_ratio=1 (pure L1 / Lasso penalty).
     Loss minimised is binary cross entropy (log loss).
-    Uses 5-fold CV optimising accuracy.
+    Uses 5-fold CV optimising balanced accuracy.
     """
     C_grid = np.logspace(-3, 2, 50)
     param_grid = {"C": C_grid}
 
     logit = LogisticRegression(
-        l1_ratio=1.0, solver="saga", max_iter=1000, random_state=42
+        l1_ratio=1,
+        solver="saga",
+        max_iter=10000,
+        random_state=42,
+        class_weight="balanced",
     )
     grid_search = GridSearchCV(
-        estimator=logit, param_grid=param_grid, cv=5, scoring="accuracy"
+        estimator=logit, param_grid=param_grid, cv=5, scoring="balanced_accuracy"
     )
     grid_search.fit(X_train, y_train)
     return grid_search
@@ -213,7 +252,9 @@ def evaluate_classifier(model, X_test, y_test):
     accuracy = accuracy_score(y_test, y_pred)
     cross_entropy = log_loss(y_test, y_prob)
     roc_auc = roc_auc_score(y_test, y_prob)
-    report = classification_report(y_test, y_pred, target_names=["Fail", "Pass"])
+    report = classification_report(
+        y_test, y_pred, target_names=["Fail", "Pass"], zero_division=0
+    )
 
     return {
         "accuracy": accuracy,
