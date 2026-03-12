@@ -74,6 +74,16 @@ L1-penalised logistic regression and Random Forest predicting whether a student'
 
 ---
 
+## Key Findings
+
+**Regression:** Lasso, Ridge, and Elastic Net all achieve R² ≈ 0.03 on G3 − G1 across all feature specifications and both datasets. Demographic and lifestyle features contain negligible signal about grade improvement conditional on starting grade. The G1 baseline Lasso (R² ≈ 0.13) confirms the feature set carries genuine information about starting performance, ruling out data quality as an explanation.
+
+**Classification:** L1 logistic regression zeroes out 12 of 13 features, retaining only `absences`, and cannot improve on a dummy classifier in accuracy. Random Forest achieves ROC-AUC of 0.673, with `absences` dominating SHAP attributions by a wide margin.
+
+**Robustness:** Results are consistent across the Portuguese dataset, Ridge vs Lasso vs Elastic Net, and numeric vs one-hot encodings.
+
+---
+
 ## Reference
 
 Cortez, P. and Silva, A. (2008). Using Data Mining to Predict Secondary School Student Performance. In A. Brito and J. Teixeira (Eds.), *Proceedings of 5th Annual Future Business Technology Conference*, Porto, Portugal, pp. 5–12.
